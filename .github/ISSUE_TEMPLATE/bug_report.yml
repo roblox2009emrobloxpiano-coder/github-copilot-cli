@@ -1,0 +1,93 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: '[Bug]: '
+labels: ['bug', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Run 'copilot' in terminal
+        2. Use '/agent' to select...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: I expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+      placeholder: Instead, this happened...
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you using?
+      placeholder: e.g., macOS 14.0, Windows 11, Ubuntu 22.04
+    validations:
+      required: true
+
+  - type: input
+    id: cli_version
+    attributes:
+      label: Copilot CLI Version
+      description: Run 'copilot --version' to get the version
+      placeholder: e.g., v1.0.3
+    validations:
+      required: true
+
+  - type: input
+    id: shell
+    attributes:
+      label: Shell
+      description: What shell are you using?
+      placeholder: e.g., bash, zsh, PowerShell, fish
+
+  - type: checkboxes
+    id: affected
+    attributes:
+      label: Affected Components
+      description: Which customization type is affected?
+      options:
+        - label: Custom Agent (.agent.md)
+        - label: Instructions File (.instructions.md / copilot-instructions.md)
+        - label: Agent Skill (SKILL.md)
+        - label: AGENTS.md
+        - label: MCP Configuration
+        - label: Other
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
+      placeholder: Error messages, log output, or screenshots can be helpful

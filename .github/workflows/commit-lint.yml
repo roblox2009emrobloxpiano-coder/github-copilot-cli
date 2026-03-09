@@ -1,0 +1,88 @@
+name: Validate Commit Messages
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commit-lint:
+    name: Conventional Commits Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          echo "## 📋 Commit Message Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+'
+
+          ERROR_COUNT=0
+          TOTAL_COUNT=0
+
+          COMMITS=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:"%H %s")
+
+          if [ -z "$COMMITS" ]; then
+            echo "ℹ️  No commits to validate" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          while IFS= read -r line; do
+            HASH=$(echo "$line" | cut -d' ' -f1)
+            MSG=$(echo "$line" | cut -d' ' -f2-)
+            SHORT_HASH=$(echo "$HASH" | cut -c1-7)
+            TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+            if echo "$MSG" | grep -qE "^Merge "; then
+              echo "⏭️ \`$SHORT_HASH\` - Merge commit (skipped)" >> $GITHUB_STEP_SUMMARY
+              continue
+            fi
+
+            if echo "$MSG" | grep -qE "$PATTERN"; then
+              echo "✅ \`$SHORT_HASH\` - $MSG" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ \`$SHORT_HASH\` - $MSG" >> $GITHUB_STEP_SUMMARY
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+          done <<< "$COMMITS"
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+
+          if [ $ERROR_COUNT -gt 0 ]; then
+            echo "### ❌ $ERROR_COUNT of $TOTAL_COUNT commit(s) do not follow Conventional Commits" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "### ✅ All $TOTAL_COUNT commit(s) follow Conventional Commits!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  pr-title-lint:
+    name: PR Title Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+'
+
+          echo "## 📋 PR Title Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Title:** $PR_TITLE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if echo "$PR_TITLE" | grep -qE "$PATTERN"; then
+            echo "### ✅ PR title follows Conventional Commits format" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ PR title does not follow Conventional Commits format" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

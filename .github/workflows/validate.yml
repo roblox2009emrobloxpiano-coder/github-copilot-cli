@@ -1,0 +1,195 @@
+name: Validate Customizations
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/agents/**"
+      - ".github/skills/**"
+      - ".github/instructions/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/agents/**"
+      - ".github/skills/**"
+      - ".github/instructions/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Validate Agent Files
+        id: validate_agents
+        run: |
+          echo "## 🤖 Agent Validation" >> $GITHUB_STEP_SUMMARY
+          ERROR_COUNT=0
+
+          if [ -d ".github/agents" ]; then
+            AGENTS=$(find .github/agents -name "*.agent.md" | sort)
+
+            if [ -z "$AGENTS" ]; then
+              echo "✅ No agent files found" >> $GITHUB_STEP_SUMMARY
+            else
+              for file in $AGENTS; do
+                echo "Checking: $file"
+
+                if ! head -1 "$file" | grep -q "^---$"; then
+                  echo "❌ Missing YAML frontmatter: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                else
+                  echo "✅ Valid structure: $file" >> $GITHUB_STEP_SUMMARY
+                fi
+
+                if ! grep -q "^description:" "$file"; then
+                  echo "⚠️  Missing 'description' field: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+              done
+            fi
+          else
+            echo "ℹ️  No agents directory found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "error_count_agents=$ERROR_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Validate Skill Files
+        id: validate_skills
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 Skill Validation" >> $GITHUB_STEP_SUMMARY
+          ERROR_COUNT=0
+
+          if [ -d ".github/skills" ]; then
+            SKILLS=$(find .github/skills -name "SKILL.md" | sort)
+
+            if [ -z "$SKILLS" ]; then
+              echo "✅ No skill files found" >> $GITHUB_STEP_SUMMARY
+            else
+              for file in $SKILLS; do
+                echo "Checking: $file"
+
+                if ! head -1 "$file" | grep -q "^---$"; then
+                  echo "❌ Missing YAML frontmatter: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+
+                if ! grep -q "^name:" "$file"; then
+                  echo "⚠️  Missing 'name' field: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+
+                if ! grep -q "^description:" "$file"; then
+                  echo "⚠️  Missing 'description' field: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+
+                if grep -q -i "usage\|how to use\|example\|when to use" "$file"; then
+                  echo "✅ Valid structure: $file" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "⚠️  Missing usage/examples: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+              done
+            fi
+          else
+            echo "ℹ️  No skills directory found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "error_count_skills=$ERROR_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Validate Instruction Files
+        id: validate_instructions
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Instructions Validation" >> $GITHUB_STEP_SUMMARY
+          ERROR_COUNT=0
+
+          if [ -d ".github/instructions" ]; then
+            INSTRUCTIONS=$(find .github/instructions -name "*.instructions.md" | sort)
+
+            if [ -z "$INSTRUCTIONS" ]; then
+              echo "✅ No instruction files found" >> $GITHUB_STEP_SUMMARY
+            else
+              for file in $INSTRUCTIONS; do
+                echo "Checking: $file"
+
+                if ! head -1 "$file" | grep -q "^---$"; then
+                  echo "❌ Missing YAML frontmatter: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+
+                if ! grep -q "^applyTo:" "$file"; then
+                  echo "⚠️  Missing 'applyTo' field: $file" >> $GITHUB_STEP_SUMMARY
+                  ERROR_COUNT=$((ERROR_COUNT + 1))
+                else
+                  echo "✅ Valid structure: $file" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+            fi
+          else
+            echo "ℹ️  No instructions directory found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "error_count_instructions=$ERROR_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Check for Broken Links
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Link Validation" >> $GITHUB_STEP_SUMMARY
+
+          FILES=$(find .github/agents .github/skills .github/instructions -name "*.md" 2>/dev/null || true)
+
+          if [ -z "$FILES" ]; then
+            echo "ℹ️  No markdown files to check" >> $GITHUB_STEP_SUMMARY
+          else
+            BROKEN_LINKS=0
+            for file in $FILES; do
+              LINKS=$(grep -oP '\[.*?\]\(\K[^)]+(?=\))' "$file" 2>/dev/null | grep -v "^http" || true)
+
+              for link in $LINKS; do
+                LINK_PATH=$(echo "$link" | cut -d'#' -f1)
+                if [ -z "$LINK_PATH" ]; then continue; fi
+
+                DIR=$(dirname "$file")
+                FULL_PATH="$DIR/$LINK_PATH"
+
+                if [ ! -e "$FULL_PATH" ]; then
+                  echo "❌ Broken link in $file: $link" >> $GITHUB_STEP_SUMMARY
+                  BROKEN_LINKS=$((BROKEN_LINKS + 1))
+                fi
+              done
+            done
+
+            if [ $BROKEN_LINKS -eq 0 ]; then
+              echo "✅ No broken links found" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: Summary
+        run: |
+          TOTAL_ERRORS=$((
+            ${{ steps.validate_agents.outputs.error_count_agents }} +
+            ${{ steps.validate_skills.outputs.error_count_skills }} +
+            ${{ steps.validate_instructions.outputs.error_count_instructions }}
+          ))
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+
+          if [ $TOTAL_ERRORS -eq 0 ]; then
+            echo "### ✅ All validations passed!" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "### ⚠️  Found $TOTAL_ERRORS issue(s)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
