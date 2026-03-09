@@ -130,6 +130,18 @@ copilot
 | `/theme` | View or configure terminal theme |
 | `/update` | Update CLI to latest version |
 | `/experimental` | Manage experimental features |
+| `/clear` | Clear the conversation history |
+| `/streamer-mode` | Toggle streamer mode (hides model names and quota) |
+
+### Other
+
+| Command | Purpose |
+|---------|---------|
+| `/exit`, `/quit` | Exit the CLI |
+| `/login` | Log in to Copilot |
+| `/logout` | Log out of Copilot |
+| `/user` | Manage GitHub user list |
+| `/terminal-setup` | Configure terminal for multiline input (shift+enter) |
 
 ## Modes
 
